@@ -1,0 +1,13 @@
+---
+interface Props {
+  date: Date;
+  compact?: boolean;
+}
+const { date, compact = false } = Astro.props;
+// timeZone: 'UTC' evita el desfase de zona horaria: la fecha del frontmatter
+// se interpreta como UTC, así que la mostramos en UTC para que no retroceda un día.
+const formatted = compact
+  ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+  : date.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+---
+<time datetime={date.toISOString()}>{formatted}</time>

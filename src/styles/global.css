@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Dark mode controlado por la clase .dark en <html> (toggle manual),
+   en vez del prefers-color-scheme por defecto de Tailwind. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Fira Code", "SF Mono", monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply bg-white text-lg leading-relaxed text-neutral-800 antialiased dark:bg-neutral-900 dark:text-neutral-100;
+}
+
+/* En dark mode el texto claro sobre fondo oscuro se percibe más FINO
+   (ilusión óptica de irradiación). Compensamos con un peso ligeramente
+   mayor para que se lea con más cuerpo, sin llegar a negrita. */
+html.dark body {
+  font-weight: 380;
+}
+
+/* Enlaces con foco visible (accesibilidad) */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-sky-500;
+}
+
+/* --- Syntax highlighting (Shiki dual theme) ---
+   Con defaultColor:false, Shiki emite variables --shiki-light / --shiki-dark.
+   Aquí elegimos cuál usar según la clase .dark. */
+.astro-code,
+.astro-code span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}
+
+html.dark .astro-code,
+html.dark .astro-code span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}
+
+.astro-code {
+  @apply overflow-x-auto rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800;
+}
+
+/* Ajustes de la prosa (contenido de los posts) al estilo minimalista */
+.prose {
+  @apply prose-neutral max-w-none dark:prose-invert;
+}
+.prose :where(code):not(:where(.astro-code *)) {
+  @apply rounded bg-neutral-100 px-1.5 py-0.5 text-sm font-normal text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200;
+}
+.prose :where(code):not(:where(.astro-code *))::before,
+.prose :where(code):not(:where(.astro-code *))::after {
+  content: none;
+}

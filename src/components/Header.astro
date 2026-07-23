@@ -1,0 +1,37 @@
+---
+import ThemeToggle from './ThemeToggle.tsx';
+
+const links = [
+  { href: '/', label: 'Inicio' },
+  { href: '/blog', label: 'Blog' },
+];
+const path = Astro.url.pathname;
+---
+<header class="border-b border-neutral-200 dark:border-neutral-800">
+  <nav class="mx-auto flex max-w-[46rem] items-center justify-between px-5 py-4">
+    <a href="/" class="font-mono text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+      devedux
+    </a>
+    <div class="flex items-center gap-1">
+      {
+        links.map((link) => {
+          const active = link.href === '/' ? path === '/' : path.startsWith(link.href);
+          return (
+            <a
+              href={link.href}
+              class:list={[
+                'rounded-md px-3 py-1.5 text-sm transition-colors',
+                active
+                  ? 'font-medium text-neutral-900 dark:text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100',
+              ]}
+            >
+              {link.label}
+            </a>
+          );
+        })
+      }
+      <ThemeToggle client:load />
+    </div>
+  </nav>
+</header>

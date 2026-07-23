@@ -1,0 +1,54 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import FormattedDate from "../components/FormattedDate.astro";
+
+const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+---
+
+<BaseLayout title="devedux — Aprendiendo AI Engineering en público">
+    <section class="mb-14">
+        <h1
+            class="text-3xl font-bold tracking-tight text-balance text-neutral-900 dark:text-neutral-100"
+        >
+            De frontend engineer a AI engineer
+        </h1>
+        <p class="mt-4 text-neutral-600 dark:text-neutral-400">
+            Documento mi camino aprendiendo AI Engineering desde los
+            fundamentos: lo que construyo, en qué me confundo y cómo lo
+            resuelvo. Sin atajos, en público.
+        </p>
+    </section>
+
+    <section>
+        <h2
+            class="mb-4 text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400"
+        >
+            Posts
+        </h2>
+        <ul class="flex flex-col">
+            {
+                posts.map((post) => (
+                    <li class="border-b border-neutral-100 last:border-0 dark:border-neutral-800/70">
+                        <a
+                            href={`/blog/${post.id}`}
+                            class="group flex flex-col gap-0.5 py-3 sm:flex-row sm:items-baseline sm:gap-5"
+                        >
+                            <span class="shrink-0 text-sm tabular-nums text-neutral-400 sm:w-28 dark:text-neutral-500">
+                                <FormattedDate
+                                    date={post.data.pubDate}
+                                    compact
+                                />
+                            </span>
+                            <span class="text-neutral-800 transition-colors group-hover:text-sky-600 dark:text-neutral-200 dark:group-hover:text-sky-400">
+                                {post.data.title}
+                            </span>
+                        </a>
+                    </li>
+                ))
+            }
+        </ul>
+    </section>
+</BaseLayout>

@@ -1,5 +1,5 @@
 ---
-title: "Semana 2: embeddings — cómo una red entiende letras"
+title: "Semana 2: Embeddings: cómo una red entiende letras"
 description: "Segundo paso de frontend a AI engineer: cómo se representan letras y palabras como números para que una red pueda trabajar con lenguaje."
 pubDate: 2026-07-24
 tags: ["ai-engineering", "embeddings"]

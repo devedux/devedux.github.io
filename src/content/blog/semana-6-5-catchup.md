@@ -74,7 +74,7 @@ La lección no es que me haya salido mal la primera vez. Es que **escribir con t
 - Volví a describir el fencing token como si el líder viejo "se enterara y se degradara" solo, en vez de que el storage rechace su escritura por comparar números.
 - Di la misma definición ("esperar a un follower") para sync y semi-sync, que son cosas distintas (todos vs. al menos uno).
 - Mi estimación de storage del capstone no tenía aplicados el overhead de índices ni el factor de replicación, pese a haber decidido ese factor en la Semana 6 anterior.
-- Dije que FlashAttention "agrupa tokens para que se miren menos entre sí" — no es así, sigue habiendo los mismos n² saludos, lo que cambia es dónde se guarda el resultado parcial (caché vs. VRAM), no a quién se mira.
+- Dije que FlashAttention "agrupa tokens para que se miren menos entre sí": no es así, sigue habiendo los mismos n² saludos, lo que cambia es dónde se guarda el resultado parcial (caché vs. VRAM), no a quién se mira.
 - Confundí "se pierde el contexto" con por qué se llama específicamente vanishing *gradient*: no es la memoria la que se desvanece, es la señal de aprendizaje durante el backward.
 - En el ejercicio oral, mezclé "vocabulario" con "longitud de secuencia" al hablar bajo presión, aunque lo tenía bien distinguido por escrito un día antes.
 

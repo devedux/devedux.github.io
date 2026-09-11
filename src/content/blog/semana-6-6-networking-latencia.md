@@ -113,6 +113,8 @@ Aplicando el paso 3 del mantra sobre mis propios números: el servidor es el 51%
 - Llamé `.version()` sobre el socket de TLS **después** de cerrarlo, y me devolvió `None` en vez de la versión real negociada. Mismo error de fondo que el `print` contaminando una medición: usar algo después de haberlo liberado.
 - En la función que mide servidor y transferencia, calculé los dos tiempos restando siempre contra el mismo punto de partida, en vez de que el segundo tramo se midiera desde donde terminó el primero. Los dos números me salieron casi idénticos (134.59ms y 134.77ms) hasta que resté uno del otro y noté que esa diferencia de 0.18ms era el número real de transferencia, escondido adentro del bug.
 
+El código completo está en [mi repo](https://github.com/devedux/ai-engineering-journey/tree/main/semana-6-6-networking).
+
 ## Qué sigue
 
 Semana 6.6 cerrada del todo: teoría completa y el script funcionando de punta a punta, con tipos, sin variables globales, sin fugas de recursos, y con las 5 fases genuinamente aisladas entre sí. Cuando tenga un endpoint propio desplegado en el Módulo 1.4, corro este mismo script sin cambiar una línea de lógica, solo el target. Sigue la Semana 7: partitioning, consistent hashing, hot partitions, caching/CDN e indexing, aplicados al capstone.

@@ -53,6 +53,21 @@ Acá me costó separar dos cosas que son mejoras diferentes:
 
 Con un RTT de ejemplo de 30ms, la diferencia es real: TLS 1.2 (60ms) + DNS (30ms) + TCP (45ms) ya suma 135ms, pasado el presupuesto de 100ms antes de que el servidor procese nada. Con TLS 1.3 en la primera visita son 105ms, todavía justo. Con 0-RTT en una visita repetida, 75ms, con margen real para el cómputo del modelo.
 
+## El árbol de diagnóstico de latencia
+
+Antes de tocar el script de medición, el video de la fuente de esta semana (AI System Design Ep. 1) trae algo más valioso que el ejemplo puntual: un árbol de decisión genérico para diagnosticar por qué un request es lento, con solo dos preguntas y cuatro diagnósticos posibles.
+
+**Primera pregunta: ¿dónde están los usuarios afectados?**
+
+- **En una región específica y lejana** del servidor de origen. Segunda pregunta: ¿ocurre solo en la primera petición, o en todas?
+  - **Solo la primera:** es un problema de cold start (DNS, TCP y TLS arrancando de cero, más el TCP slow start pegándole a la primera transferencia). Solución: edge server para esa región, reutilizar conexiones, y migrar a TLS 1.3 si todavía estoy en 1.2.
+  - **En todas, incluso con la conexión ya tibia:** ya agoté todo lo que se arregla con software. Lo único que queda es la distancia física, y ahí no hay más solución que un edge server.
+- **En todas partes por igual**, sin importar la región. La distancia queda descartada. Segunda pregunta: ¿la respuesta es grande o chica?
+  - **Grande:** cuello de botella de ancho de banda, agravado por el TCP slow start si la conexión no está tibia. Solución: comprimir los datos (40-60% menos peso) y mantener conexiones abiertas.
+  - **Chica y constante:** por eliminación, ni es distancia ni es transferencia. El problema está en el procesamiento del propio servidor: ahí sí entra optimizar las llamadas a un LLM o el pipeline de código, pero recién como última hoja del árbol, no como primera sospecha.
+
+Lo que rescato de esto no es el ejemplo puntual, es el método: dos preguntas bien elegidas descartan la mitad de las causas posibles en cada paso, en vez de adivinar "el servidor está lento" sin evidencia.
+
 ## En qué me confundí
 
 - Confundí sync con semi-sync en un recap anterior de replicación, y esta semana volví a mezclar etiquetas dos veces: dije "el servidor le entrega la IP al cliente" refiriéndome al servidor de mi aplicación, cuando es el servidor DNS (una máquina completamente aparte) el que hace eso. Se me coló dos veces seguidas pese a la corrección.

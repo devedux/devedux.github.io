@@ -1,9 +1,9 @@
 ---
 title: "Semana 6.6: todo lo que pasa antes de que mi servidor vea el primer byte"
-description: "Sexto punto medio de frontend a AI engineer: RTT como piso físico de la latencia, DNS y su caché, TCP handshake, y por qué TLS 1.3 le gana a TLS 1.2 en milisegundos que sí importan para un presupuesto de latencia ajustado."
+description: "Sexto punto medio de frontend a AI engineer: RTT como piso físico de la latencia, DNS y su caché, TCP handshake, TLS 1.2 vs 1.3, TCP slow start, el mantra de 4 pasos, y un script propio en Python que mide las 5 fases contra un endpoint real."
 pubDate: 2026-09-04
 tags: ["ai-engineering", "system-design", "networking"]
-draft: true
+draft: false
 ---
 
 Toda la Semana 5 y la Semana 6 asumí que el request ya había llegado a mi servidor. Nunca pregunté qué pasa antes de eso: el viaje físico entre que el cliente aprieta Enter y el primer byte le llega a mi código. Esta semana es esa parte, y resultó que el 75% de un presupuesto de 100ms se puede ir ahí, sin que mi servidor haya procesado nada todavía.
@@ -53,6 +53,23 @@ Acá me costó separar dos cosas que son mejoras diferentes:
 
 Con un RTT de ejemplo de 30ms, la diferencia es real: TLS 1.2 (60ms) + DNS (30ms) + TCP (45ms) ya suma 135ms, pasado el presupuesto de 100ms antes de que el servidor procese nada. Con TLS 1.3 en la primera visita son 105ms, todavía justo. Con 0-RTT en una visita repetida, 75ms, con margen real para el cómputo del modelo.
 
+## TCP slow start: por qué un request frío es más lento que uno tibio, incluso con el mismo ancho de banda
+
+Con TCP y TLS confirmados, todavía falta un paso antes de que los datos lleguen completos: la transferencia en sí no es instantánea, ni siquiera después de todos los handshakes.
+
+El servidor no sabe de antemano cuánto ancho de banda soporta esa conexión puntual, ni cuánta congestión hay en la red intermedia. Si mandara todo de una sola vez y la conexión real no aguantaba eso, satura el canal y empieza a perder paquetes. Por eso TCP usa slow start: manda un paquete chico primero, espera la confirmación, y duplica la cantidad en la siguiente tanda (1, 2, 4, 8, 16 unidades de datos, así sucesivamente).
+
+Ahí está la diferencia entre frío y tibio. Una conexión nueva arranca este algoritmo desde cero, encima de un DNS y un TCP y un TLS que también arrancaron desde cero. Una conexión que ya se venía usando tiene la ventana de slow start ya expandida de rondas anteriores, así que la transferencia sale casi instantánea aunque el archivo sea el mismo. Por eso mantener conexiones abiertas no solo ahorra los dos handshakes (TCP y TLS): también ahorra volver a arrancar la transferencia desde el paquete más chico posible.
+
+## El mantra de 4 pasos: decomponer, medir, encontrar el dominante, repetir
+
+Es muy fácil decir "el servidor está lento" sin evidencia, y terminar optimizando algo irrelevante. El mantra existe para reemplazar la conjetura por medición real:
+
+1. **Decomponer** el ciclo completo del request en sus fases: DNS, TCP, TLS, procesamiento del servidor, transferencia. Las tres primeras son puro peaje de red, pasan antes de que mi servidor vea nada. Las últimas dos son las únicas donde mi código realmente participa.
+2. **Medir** cada fase por separado, en milisegundos reales, no supuestos.
+3. **Encontrar el dominante**: la fase que se lleva la mayor parte del tiempo total es la única que vale la pena atacar primero.
+4. **Repetir**: arreglo el dominante, vuelvo a medir, aparece un nuevo dominante, sigo.
+
 ## El árbol de diagnóstico de latencia
 
 Antes de tocar el script de medición, el video de la fuente de esta semana (AI System Design Ep. 1) trae algo más valioso que el ejemplo puntual: un árbol de decisión genérico para diagnosticar por qué un request es lento, con solo dos preguntas y cuatro diagnósticos posibles.
@@ -68,12 +85,34 @@ Antes de tocar el script de medición, el video de la fuente de esta semana (AI 
 
 Lo que rescato de esto no es el ejemplo puntual, es el método: dos preguntas bien elegidas descartan la mitad de las causas posibles en cada paso, en vez de adivinar "el servidor está lento" sin evidencia.
 
+## El script real: medir las 5 fases con Python puro
+
+El entregable de la semana no era leer sobre latencia, era escribirla. Armé `latency_measurement.py` con `socket`, `ssl` y `time`, sin `requests` de por medio a propósito: esa librería esconde justo las 5 fases que quería medir por separado.
+
+Cada fase es una función que devuelve un `NamedTuple` tipado (el equivalente en Python a una `interface` de TypeScript), y cada una abre su propia conexión en vez de compartir una entre fases. Repetir la apertura de conexión entre funciones es intencional, no desperdicio: es la única forma de que cada fase sea medible de forma aislada, la misma idea del paso 1 del mantra.
+
+Contra `google.com` (todavía no tengo un endpoint propio del capstone desplegado, eso llega recién en el Módulo 1.4), el resultado real:
+
+| Fase | Tiempo medido |
+|---|---|
+| DNS | 3.93 ms |
+| TCP | 59.46 ms |
+| TLS | 64.81 ms (confirmé TLSv1.3 real, no asumido) |
+| Servidor | 136.65 ms |
+| Transferencia | 0.43 ms |
+| **Total** | **~265 ms** |
+
+Aplicando el paso 3 del mantra sobre mis propios números: el servidor es el 51% del tiempo total, más que DNS, TCP y TLS juntos. Y la transferencia salió casi cero porque la respuesta fue chica (una redirección de 220 bytes que entra completa en la primera ronda de slow start, sin necesitar duplicar nada), confirma en código real la hoja del árbol de arriba: "respuesta chica y constante, la transferencia no es el cuello de botella".
+
 ## En qué me confundí
 
 - Confundí sync con semi-sync en un recap anterior de replicación, y esta semana volví a mezclar etiquetas dos veces: dije "el servidor le entrega la IP al cliente" refiriéndome al servidor de mi aplicación, cuando es el servidor DNS (una máquina completamente aparte) el que hace eso. Se me coló dos veces seguidas pese a la corrección.
 - Al explicar el problema que resuelve SNI, primero lo planteé al revés (dije que el certificado necesitaba el dominio "que viene dentro de ese cifrado"), cuando el problema real es el opuesto: el dominio normalmente solo aparece **después** de que el certificado ya se tendría que haber elegido. Lo corregí bien en el segundo intento, sin que me lo repitieran.
 - Mezclé las dos mejoras de TLS 1.3 en una sola, y le puse "0 RTT" a la mejora general del handshake completo, que en realidad es 1 RTT. El 0-RTT real es un caso aparte, solo para visitas repetidas.
+- Escribiendo el script: intenté sacar un valor de una función asignándolo a una variable global con el mismo nombre, sin entender que una asignación dentro de una función crea una variable local nueva que no toca a la de afuera, aunque se llamen igual. La variable global se quedaba vacía para siempre. La solución no fue agregar `global`, fue devolver un `NamedTuple` con todo lo que necesitaba.
+- Llamé `.version()` sobre el socket de TLS **después** de cerrarlo, y me devolvió `None` en vez de la versión real negociada. Mismo error de fondo que el `print` contaminando una medición: usar algo después de haberlo liberado.
+- En la función que mide servidor y transferencia, calculé los dos tiempos restando siempre contra el mismo punto de partida, en vez de que el segundo tramo se midiera desde donde terminó el primero. Los dos números me salieron casi idénticos (134.59ms y 134.77ms) hasta que resté uno del otro y noté que esa diferencia de 0.18ms era el número real de transferencia, escondido adentro del bug.
 
 ## Qué sigue
 
-Quedan dos piezas cortas de esta misma semana: TCP slow start (por qué un request "frío" es más lento que uno "tibio") y el mantra de 4 pasos para decidir dónde optimizar primero (decomponer, medir, dominante, repetir). Y el entregable real: un script de medición de DNS, TCP y TLS contra mi propio endpoint del capstone, para reemplazar los números de ejemplo de este post por mediciones reales. Publico esto en draft mientras cierro esas dos partes.
+Semana 6.6 cerrada del todo: teoría completa y el script funcionando de punta a punta, con tipos, sin variables globales, sin fugas de recursos, y con las 5 fases genuinamente aisladas entre sí. Cuando tenga un endpoint propio desplegado en el Módulo 1.4, corro este mismo script sin cambiar una línea de lógica, solo el target. Sigue la Semana 7: partitioning, consistent hashing, hot partitions, caching/CDN e indexing, aplicados al capstone.

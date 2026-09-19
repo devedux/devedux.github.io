@@ -1,12 +1,12 @@
 ---
 title: "Semana 6.6 aplicada: el network error que tardaba dos minutos en fallar"
-description: "La teoría de networking aplicada a un caso real del trabajo: un request de tokenización de tarjetas que fallaba con status 0, por qué el error tardaba una eternidad en aparecer, percentiles para calibrar un timeout, y un request que el cliente dio por muerto pero el backend completó igual."
+description: "La teoría de networking aplicada a un caso real: un request de tokenización de tarjetas que fallaba con status 0, por qué el error tardaba una eternidad en aparecer, percentiles para calibrar un timeout, y un request que el cliente dio por muerto pero el backend completó igual."
 pubDate: 2026-09-19
 tags: ["networking", "system-design", "debugging"]
 draft: false
 ---
 
-Una semana después de cerrar la teoría de networking, me cayó en el trabajo el caso perfecto para aplicarla. Producto reportó que un request crítico del checkout (la tokenización de la tarjeta) fallaba con "network error" para algunos usuarios, y pidió resolverlo desde el frontend. El detalle que hacía todo peor: cuando fallaba, el error tardaba muchísimo en aparecer. El usuario se quedaba mirando un spinner por más de un minuto antes de enterarse de que algo salió mal.
+Una semana después de cerrar la teoría de networking, me crucé con el caso perfecto para aplicarla: un checkout de pagos donde un request crítico (la tokenización de la tarjeta) fallaba con "network error" para algunos usuarios, y había que resolverlo desde el frontend. El detalle que hacía todo peor: cuando fallaba, el error tardaba muchísimo en aparecer. El usuario se quedaba mirando un spinner por más de un minuto antes de enterarse de que algo salió mal.
 
 Este post es la historia completa del diagnóstico, porque casi cada concepto de la Semana 6.6 terminó apareciendo en algún punto: TCP y sus retransmisiones, DNS, TLS, percentiles, y un final que no vi venir.
 
@@ -23,7 +23,7 @@ Un matiz que me acomodó la cabeza: "status 0" no es una respuesta HTTP. Es el v
 
 ## La evidencia: sesiones reales en vez de suposiciones
 
-Antes de proponer nada, junté HARs de sesiones reales con el fallo (los exporté desde nuestra herramienta de session replay) y les armé un script en Python que clasifica cada sesión: ¿falló solo el request crítico, o fallaron también los assets estáticos y los scripts de terceros? Esa pregunta sola ya divide el mundo: si falla *todo* hacia *todos* los hosts, el problema es la red del usuario, no tu infraestructura.
+Antes de proponer nada, junté HARs de sesiones reales con el fallo (los exporté desde la herramienta de session replay) y les armé un script en Python que clasifica cada sesión: ¿falló solo el request crítico, o fallaron también los assets estáticos y los scripts de terceros? Esa pregunta sola ya divide el mundo: si falla *todo* hacia *todos* los hosts, el problema es la red del usuario, no tu infraestructura.
 
 Lo que salió de las sesiones:
 
@@ -45,17 +45,17 @@ Lo comprobé con un curl con timing por fases contra el gateway: DNS 19ms, TCP 1
 
 ## Percentiles: cómo se decide un timeout sin adivinar
 
-La solución obvia era ponerle un timeout al request. La pregunta difícil era cuánto. Y acá cometí mi mejor error de la semana: en la reunión le propuse a producto "agregarle un TTL al request". El concepto era correcto (acotar la espera), el término era otro: TTL es cuánto tiempo un dato sigue siendo válido (la fecha de vencimiento del yogurt), timeout es cuánto estoy dispuesto a esperar por una respuesta (cuánto aguanto la cola del banco antes de irme). Lo que yo quería era un timeout.
+La solución obvia era ponerle un timeout al request. La pregunta difícil era cuánto. Y acá cometí mi mejor error de la semana: propuse "agregarle un TTL al request". El concepto era correcto (acotar la espera), el término era otro: TTL es cuánto tiempo un dato sigue siendo válido (la fecha de vencimiento del yogurt), timeout es cuánto estoy dispuesto a esperar por una respuesta (cuánto aguanto la cola del banco antes de irme). Lo que yo quería era un timeout.
 
 Para elegir el valor armé gráficas de duración de requests en percentiles. Si nunca los viste: ordenás todos los requests del más rápido al más lento y mirás posiciones en esa fila. El **p50** es la mediana (la experiencia típica), el **p99** es el valor que solo el 1% más lento supera. El promedio no sirve para esto: un solo request de 30s en un mar de requests de 0.5s te da un promedio que no describe la experiencia de nadie.
 
 Con los primeros datos: p50 ≈ 0.8s, p95 ≈ 1.9s, p99 ≈ 4s. La regla práctica es poner el timeout en **p99 × 2-3**, que dio ~10 segundos. Por encima del p99 casi no cortás requests que iban a terminar bien; si lo pusieras en el p95, vos mismo estarías rompiendo el 5% de requests legítimos lentos. Con volumen real eso es mucha gente: sobre 30,000 tokenizaciones diarias, el "solo 5%" son 1,500 pagos rotos por tu propio timeout.
 
-Y acá vuelve la sesión 4: un 201 legítimo que tardó 33 segundos, en una red horrible. Ese usuario vive en el p99.9, y un timeout de 10s seco le habría convertido su éxito en fallo. La decisión de qué hacer con esa cola no es técnica, es de producto: nosotros la presentamos como trade-off explícito (timeout seco vs timeout + reintentos con presupuesto total de ~33s) en vez de esconderla dentro de un número.
+Y acá vuelve la sesión 4: un 201 legítimo que tardó 33 segundos, en una red horrible. Ese usuario vive en el p99.9, y un timeout de 10s seco le habría convertido su éxito en fallo. La decisión de qué hacer con esa cola no es técnica, es de producto: hay que presentarla como trade-off explícito (timeout seco vs timeout + reintentos con presupuesto total de ~33s) en vez de esconderla dentro de un número.
 
 ## El giro: el request que "falló" en 760ms
 
-La sesión 2 no me cerraba. Red sana, todo lo demás rápido, y el request muere en 760ms. Mi hipótesis era CORS o un WAF. Para confirmarla pedimos correlacionar el `x-request-id` del request fallido contra los logs del servidor.
+La sesión 2 no me cerraba. Red sana, todo lo demás rápido, y el request muere en 760ms. Mi hipótesis era CORS o un WAF. Para confirmarla, el siguiente paso fue correlacionar el `x-request-id` del request fallido contra los logs del servidor.
 
 El resultado me voló la cabeza: el request **sí llegó**. El backend lo procesó en ~300ms y devolvió 201. La tarjeta se creó. **La respuesta se perdió en el camino de vuelta**, y el usuario vio un error mientras su tarjeta ya existía del otro lado.
 
@@ -91,13 +91,13 @@ try {
 
 **Idempotencia**, que es la pieza que hace seguro al retry frente al limbo. No la implementa el frontend: es una garantía del backend (en nuestro caso, el endpoint hace upsert). La secuencia que protege: intento 1 queda en el limbo (se procesó pero el cliente no lo sabe), intento 2 llega, y el backend responde con lo ya creado en vez de duplicar. Si el backend en cambio pide un header tipo `Idempotency-Key`, al frontend le toca cooperar con una regla de oro: **una key por operación, no por intento**. La key identifica la intención del usuario, y se reutiliza idéntica en todos los reintentos de ese submit; si generás una nueva por intento, el backend ve operaciones distintas y creaste el duplicado que la key existía para evitar.
 
-**Preconnect** para pagar los ~425ms de DNS + TCP + TLS mientras el usuario tipea, con una trampa que descubrí mirando nuestras propias sesiones: los navegadores cierran las conexiones precalentadas ociosas en ~10-15 segundos, y nuestros usuarios tardan entre 35 segundos y 2 minutos llenando el formulario de tarjeta. Un preconnect al cargar la página muere antes del submit. Hay que dispararlo al enfocar el formulario, o mejor, hacer un warm-up request real, que además es observable desde JavaScript: si falla, sabés que la red está rota antes de que el usuario termine de tipear.
+**Preconnect** para pagar los ~425ms de DNS + TCP + TLS mientras el usuario tipea, con una trampa que descubrí mirando las propias sesiones: los navegadores cierran las conexiones precalentadas ociosas en ~10-15 segundos, y los usuarios tardaban entre 35 segundos y 2 minutos llenando el formulario de tarjeta. Un preconnect al cargar la página muere antes del submit. Hay que dispararlo al enfocar el formulario, o mejor, hacer un warm-up request real, que además es observable desde JavaScript: si falla, sabés que la red está rota antes de que el usuario termine de tipear.
 
 **Telemetría** por cada fallo (tiempo hasta el error, tipo de error, request-id, tipo de conexión). Es la pieza que calibra el timeout con distribución real, mide si el retry funciona, y avisa si algo se degrada después del rollout.
 
 ## En qué me confundí
 
-- Le propuse a producto "agregar un TTL al request". Era un timeout. TTL le pone vencimiento a un dato (DNS cachea una IP por N segundos), timeout acota una espera. A un backend "agregar TTL" le suena a tocar DNS o caché, que es otra conversación.
+- Propuse "agregar un TTL al request". Era un timeout. TTL le pone vencimiento a un dato (DNS cachea una IP por N segundos), timeout acota una espera. A un backend "agregar TTL" le suena a tocar DNS o caché, que es otra conversación.
 - Pregunté por el ancho de banda de los endpoints cuando la métrica relevante era la latencia. Con payloads de cientos de bytes, el ancho de banda no participa.
 - Cuando entendí que un request abortado pudo haberse completado en el servidor, asumí que el request "seguía en la red intentando llegar". No funciona así: los routers no guardan ni reintentan nada, son reenviadores sin memoria. El que insiste es el TCP del propio dispositivo retransmitiendo, y cuando abortás, esa insistencia se apaga con él. Lo peligroso nunca fue el request perdido: es el que sí llegó y cuya respuesta se perdió.
 - Clasifiqué el fallo rápido de la sesión 2 como "sistemático, probablemente CORS". Los logs del servidor me lo desmintieron: era el limbo. La lección de método: la hipótesis desde el cliente vale hasta que la correlación server-side habla, porque el cliente literalmente no puede ver la diferencia.

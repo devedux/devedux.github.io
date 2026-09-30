@@ -22,7 +22,7 @@ Con **read committed** (nunca ves un borrador ajeno sin confirmar) tampoco cambi
 
 ## Lo que sí lo resuelve: un unique constraint
 
-La solución no está en subir el nivel de aislamiento para esto en particular, está en una restricción de tabla: `order_id` no puede repetirse en ninguna fila. Con esa regla puesta, las dos transacciones pueden seguir creyendo que están solas al leer, pero al momento de escribir, **solo una de las dos gana** — la otra falla con un error de restricción única, sin excepción.
+La solución no está en subir el nivel de aislamiento para esto en particular, está en una restricción de tabla: `order_id` no puede repetirse en ninguna fila. Con esa regla puesta, las dos transacciones pueden seguir creyendo que están solas al leer, pero al momento de escribir, **solo una de las dos gana**: la otra falla con un error de restricción única, sin excepción.
 
 Eso cambió cómo tiene que reaccionar mi código: si el `INSERT` falla por esa restricción, no es un error real, es la señal de que alguien más ya estaba procesando esa orden, y tengo que ir a buscar esa fila y devolver su resultado en vez de inventar uno nuevo. El `order_id` viajando en el request nunca fue suficiente por sí solo; necesitaba algo en la base que hiciera imposible que dos escrituras con el mismo valor coexistieran.
 

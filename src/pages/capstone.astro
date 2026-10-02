@@ -1,0 +1,142 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+    title="routelens, el capstone | devedux"
+    description="routelens: una plataforma de pagos multi-tenant que decide en tiempo real a qué procesador rutear cada transacción, investiga incidentes con un agente, y propone cambios que un humano aprueba antes de aplicar."
+>
+    <section class="mb-10">
+        <h1
+            class="text-3xl font-bold tracking-tight text-balance text-neutral-900 dark:text-neutral-100"
+        >
+            routelens
+        </h1>
+        <p class="mt-4 text-neutral-600 dark:text-neutral-400">
+            Te uniste a una plataforma de pagos multi-tenant. Cada
+            transacción que entra tiene que decidir, en milisegundos, a qué
+            procesador rutear, y esa decisión importa: elegir mal cuesta
+            plata, ya sea en fraude aprobado o en pagos buenos rechazados
+            por error. Cuando algo sale mal (la tasa de aprobación cae,
+            aparece un pico de fraude), alguien tiene que darse cuenta
+            rápido, entender por qué, y corregirlo, sin arriesgar un segundo
+            error por apurarse.
+        </p>
+    </section>
+
+    <section class="mb-10">
+        <h2
+            class="mb-4 text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400"
+        >
+            Requisitos funcionales
+        </h2>
+        <ul class="flex flex-col gap-2 text-neutral-600 dark:text-neutral-400">
+            <li>Decidir a qué procesador rutear cada transacción.</li>
+            <li>
+                Ante una anomalía (como una caída en la tasa de aprobación),
+                generar una hipótesis de causa raíz.
+            </li>
+            <li>
+                Notificar al merchant afectado cada vez que se resuelve o
+                actualiza un incidente.
+            </li>
+            <li>
+                Dejar un registro de auditoría de cada acceso a datos de una
+                transacción (requisito regulatorio real en pagos, PCI-DSS).
+            </li>
+        </ul>
+    </section>
+
+    <section class="mb-10">
+        <h2
+            class="mb-4 text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400"
+        >
+            Requisitos no funcionales
+        </h2>
+        <ul class="flex flex-col gap-2 text-neutral-600 dark:text-neutral-400">
+            <li>El servicio de scoring debe responder en menos de 100ms.</li>
+            <li>
+                Debe soportar 10,000 transacciones por segundo en hora pico.
+            </li>
+            <li>
+                Los datos de un merchant nunca deben ser visibles para otro
+                (aislamiento multi-tenant).
+            </li>
+            <li>
+                Debe seguir aceptando escrituras durante un failover, sin
+                perder ninguna transacción ya confirmada.
+            </li>
+        </ul>
+    </section>
+
+    <section class="mb-10">
+        <h2
+            class="mb-4 text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400"
+        >
+            La solución
+        </h2>
+        <ul class="flex flex-col gap-4 text-neutral-700 dark:text-neutral-300">
+            <li>
+                <strong class="text-neutral-900 dark:text-neutral-100"
+                    >Routing en tiempo real</strong
+                >: un modelo entrenado predice riesgo de fraude y probabilidad
+                de éxito por procesador, y elige a dónde rutear cada
+                transacción dentro del presupuesto de latencia.
+            </li>
+            <li>
+                <strong class="text-neutral-900 dark:text-neutral-100"
+                    >Investigación de incidentes</strong
+                >: un agente junta evidencia de logs y métricas y arma una
+                hipótesis de causa raíz con nivel de confianza, y notifica al
+                merchant afectado.
+            </li>
+            <li>
+                <strong class="text-neutral-900 dark:text-neutral-100"
+                    >Recomendación con aprobación humana</strong
+                >: el agente puede proponer cambios concretos a las reglas de
+                routing, pero nunca los aplica solo. Siempre pasan por una
+                revisión antes de tomar efecto, y cada acceso queda
+                auditado.
+            </li>
+        </ul>
+        <p class="mt-6 text-neutral-600 dark:text-neutral-400">
+            Es el capstone de este roadmap: no son ejercicios sueltos, es un
+            mismo sistema creciendo semana a semana, documentado en el <a
+                href="/blog"
+                class="underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900 dark:decoration-neutral-700 dark:hover:text-neutral-100"
+                >blog</a
+            > a medida que avanza.
+        </p>
+    </section>
+
+    <section class="mb-10">
+        <h2
+            class="mb-4 text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400"
+        >
+            Por qué un agente, no reglas fijas
+        </h2>
+        <p class="text-neutral-600 dark:text-neutral-400">
+            La alternativa sin IA ya existe en la industria: reglas de
+            routing escritas a mano que alguien reescribe cuando el mundo
+            cambia, motores de fraude con umbrales fijos que los atacantes
+            aprenden a evadir, y un ingeniero de guardia correlacionando
+            dashboards manualmente siguiendo un runbook. En los tres casos el
+            método es reactivo y estático. routelens reemplaza reglas
+            escritas a mano por aprendizaje de datos, y correlación manual
+            por investigación automatizada con evidencia.
+        </p>
+    </section>
+
+    <section>
+        <h2
+            class="mb-4 text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400"
+        >
+            Una aclaración
+        </h2>
+        <p class="text-neutral-600 dark:text-neutral-400">
+            Todo corre sobre comercios y tiendas 100% ficticios, y solo con
+            datos sintéticos o anonimizados. Nunca datos reales de clientes
+            ni de ninguna empresa.
+        </p>
+    </section>
+</BaseLayout>

@@ -13,12 +13,21 @@ const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
         <h1
             class="text-3xl font-bold tracking-tight text-balance text-neutral-900 dark:text-neutral-100"
         >
-            De frontend engineer a AI engineer
+            El pivot de frontend a AI engineering
         </h1>
         <p class="mt-4 text-neutral-600 dark:text-neutral-400">
-            Documento mi camino aprendiendo AI Engineering desde los
-            fundamentos: lo que construyo, en qué me confundo y cómo lo
-            resuelvo. Sin atajos, en público.
+            Para quien viene de software "de toda la vida" y se pregunta si
+            vale la pena aprender los fundamentos en serio: backprop,
+            transformers, system design, harness, todo construido y
+            documentado semana a semana. El hilo que amarra todo es un
+            capstone real, <a
+                href="/capstone"
+                class="underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900 dark:decoration-neutral-700 dark:hover:text-neutral-100"
+                >routelens</a
+            >: una plataforma de pagos que decide en tiempo real a qué
+            procesador rutear cada transacción, investiga incidentes con un
+            agente, y propone cambios que un humano aprueba antes de
+            aplicar.
         </p>
     </section>
 
